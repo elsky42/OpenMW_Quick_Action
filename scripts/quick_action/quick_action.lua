@@ -269,7 +269,7 @@ function State:nextListing()
 end
 
 function State:delListing()
-   if not self.listings[self.currentId].isModifiable then return end
+   if not self.listings[self.currentId].isModifiable or #self.listingsTitles == 1 then return end
    local removedId = self.currentId
    self:nextListing()
    self.listings[removedId] = nil
