@@ -630,6 +630,7 @@ local function lookupLayout(widget, names)
 end
 
 local function changeSelection(index)
+   print(I.UI.getMode())
    if not inputWidget then return end
    local current = state:current()
    if #current.listing.items == 0 then return end
@@ -784,6 +785,155 @@ local function listBasicActions(listingTitle)
    }
 end
 
+local function select()
+   local current = state:current()
+   local selectedItem = current:selectedItem()
+
+   if selectedItem.action.type == "SHOW_EQUIP_WEAPON_ACTIONS" then
+      local title = 'Select Weapon to add:'
+      state:newAndSetListing(title, Listing:unmodifiable(listAddEquipWeaponActions(selectedItem.listingTitle)))
+      showQuickAction()
+
+   elseif selectedItem.action.type == "ADD_EQUIP_WEAPON_ACTION" then
+      local weaponId = selectedItem.action.args
+      state:addItemTo(selectedItem.listingTitle, {
+         name = selectedItem.name,
+         texturePath = selectedItem.texturePath,
+         action = { type = "EQUIP_TO_RIGHT_HAND", args = weaponId },
+      })
+      state:setListing(selectedItem.listingTitle)
+      showQuickAction()
+
+   elseif selectedItem.action.type == "EQUIP_TO_RIGHT_HAND" then
+      local weaponId = selectedItem.action.args
+      local weapon = Actor.inventory(self):find(weaponId)
+
+      if weapon == nil then
+         print('Selected weapon ' .. selectedItem.name .. ' could not be found (id:' .. tostring(weaponId) .. ')')
+      else
+         local equipment = Actor.getEquipment(self)
+         print('Equipping ' .. selectedItem.name)
+         equipment[Actor.EQUIPMENT_SLOT.CarriedRight] = weapon
+         Actor.setEquipment(self, equipment)
+         Actor.setStance(self, Actor.STANCE.Weapon)
+      end
+      closeQuickAction()
+      state:setFirstListing()
+
+   elseif selectedItem.action.type == "SHOW_EQUIP_SPELL_ACTIONS" then
+      local title = 'Select Spell to add:'
+      state:newAndSetListing(title, Listing:unmodifiable(listAddEquipSpellActions(selectedItem.listingTitle)))
+      showQuickAction()
+
+   elseif selectedItem.action.type == "ADD_EQUIP_SPELL_ACTION" then
+      local spellId = selectedItem.action.args
+      state:addItemTo(selectedItem.listingTitle, {
+         name = selectedItem.name,
+         texturePath = selectedItem.texturePath,
+         action = { type = "EQUIP_SPELL", args = spellId },
+      })
+      state:setListing(selectedItem.listingTitle)
+      showQuickAction()
+
+   elseif selectedItem.action.type == "EQUIP_SPELL" then
+      local spellId = selectedItem.action.args
+      local spell = (core.magic.spells.records)[spellId]
+
+      if spell == nil then
+         print('Selected Spell ' .. selectedItem.name .. ' could not be found (spellId:' .. tostring(spellId) .. ')')
+      else
+         print('Equipping ' .. spell.name)
+         Actor.clearSelectedCastable(self)
+         Actor.setSelectedSpell(self, spell)
+
+         async:newUnsavableGameTimer(10, function()
+            Actor.setStance(self, Actor.STANCE.Spell)
+         end)
+      end
+      closeQuickAction()
+      state:setFirstListing()
+
+
+   elseif selectedItem.action.type == "SHOW_EQUIP_ENCHANTED_ACTIONS" then
+      local title = 'Select Enchantment to add:'
+      state:newAndSetListing(title, Listing:unmodifiable(listAddEquipEnchantedActions(selectedItem.listingTitle)))
+      showQuickAction()
+
+   elseif selectedItem.action.type == "ADD_EQUIP_ENCHANTED_ACTION" then
+      local itemId = selectedItem.action.args
+      state:addItemTo(selectedItem.listingTitle, {
+         name = selectedItem.name,
+         texturePath = selectedItem.texturePath,
+         action = { type = "EQUIP_ENCHANTED_ITEM", args = itemId },
+      })
+      state:setListing(selectedItem.listingTitle)
+      showQuickAction()
+
+   elseif selectedItem.action.type == "EQUIP_ENCHANTED_ITEM" then
+      local itemId = selectedItem.action.args
+      local item = Actor.inventory(self):find(itemId)
+
+      if item == nil then
+         print('Selected Enchanted Item ' .. selectedItem.name .. ' could not be found (id:' .. tostring(itemId) .. ')')
+      else
+         Actor.clearSelectedCastable(self)
+         Actor.setSelectedEnchantedItem(self, item)
+
+         async:newUnsavableGameTimer(10, function()
+            Actor.setStance(self, Actor.STANCE.Spell)
+         end)
+      end
+      closeQuickAction()
+      state:setFirstListing()
+
+   else
+      error('Unknown action type ' .. tostring(selectedItem.action.type))
+      closeQuickAction()
+   end
+end
+
+local function onControllerButtonPress(ctrl)
+   if inputWidget == nil then
+      if ctrl == input.CONTROLLER_BUTTON.DPadUp and not core.isWorldPaused() then
+         showQuickAction()
+      end
+      return
+   end
+   if ctrl == input.CONTROLLER_BUTTON.A then
+      select()
+
+   elseif ctrl == input.CONTROLLER_BUTTON.B then
+      closeQuickAction()
+
+   elseif ctrl == input.CONTROLLER_BUTTON.X then
+      state:removeSelected()
+
+   elseif ctrl == input.CONTROLLER_BUTTON.Y then
+      local title = 'Select the action to add:'
+      state:newAndSetListing(title, Listing:unmodifiable(listBasicActions(state:current().title)))
+      showQuickAction()
+
+   elseif ctrl == input.CONTROLLER_BUTTON.DPadUp then
+      local current = state:current()
+      local numItems = #current.listing.items
+      local newSelected = math.fmod(current.selectedItemIndex + 1, numItems + 1)
+      if newSelected == 0 then
+         newSelected = 1
+      end
+      changeSelection(newSelected)
+
+   elseif ctrl == input.CONTROLLER_BUTTON.DPadDown then
+      local current = state:current()
+      local numItems = #current.listing.items
+      local newSelected = math.fmod(current.selectedItemIndex - 1, numItems + 1)
+      if newSelected == 0 then
+         newSelected = numItems
+      end
+      changeSelection(newSelected)
+
+   end
+end
+
 local function onKeyPress(key)
 
    local keyName = input.getKeyName(key.code):lower()
@@ -826,110 +976,7 @@ end
 local function onMouseButtonRelease(button)
    if inputWidget == nil then return end
    if button == 1 then
-      local current = state:current()
-      local selectedItem = current:selectedItem()
-
-      if selectedItem.action.type == "SHOW_EQUIP_WEAPON_ACTIONS" then
-         local title = 'Select Weapon to add:'
-         state:newAndSetListing(title, Listing:unmodifiable(listAddEquipWeaponActions(selectedItem.listingTitle)))
-         showQuickAction()
-
-      elseif selectedItem.action.type == "ADD_EQUIP_WEAPON_ACTION" then
-         local weaponId = selectedItem.action.args
-         state:addItemTo(selectedItem.listingTitle, {
-            name = selectedItem.name,
-            texturePath = selectedItem.texturePath,
-            action = { type = "EQUIP_TO_RIGHT_HAND", args = weaponId },
-         })
-         state:setListing(selectedItem.listingTitle)
-         showQuickAction()
-
-      elseif selectedItem.action.type == "EQUIP_TO_RIGHT_HAND" then
-         local weaponId = selectedItem.action.args
-         local weapon = Actor.inventory(self):find(weaponId)
-
-         if weapon == nil then
-            print('Selected weapon ' .. selectedItem.name .. ' could not be found (id:' .. tostring(weaponId) .. ')')
-         else
-            local equipment = Actor.getEquipment(self)
-            print('Equipping ' .. selectedItem.name)
-            equipment[Actor.EQUIPMENT_SLOT.CarriedRight] = weapon
-            Actor.setEquipment(self, equipment)
-            Actor.setStance(self, Actor.STANCE.Weapon)
-         end
-         closeQuickAction()
-         state:setFirstListing()
-
-      elseif selectedItem.action.type == "SHOW_EQUIP_SPELL_ACTIONS" then
-         local title = 'Select Spell to add:'
-         state:newAndSetListing(title, Listing:unmodifiable(listAddEquipSpellActions(selectedItem.listingTitle)))
-         showQuickAction()
-
-      elseif selectedItem.action.type == "ADD_EQUIP_SPELL_ACTION" then
-         local spellId = selectedItem.action.args
-         state:addItemTo(selectedItem.listingTitle, {
-            name = selectedItem.name,
-            texturePath = selectedItem.texturePath,
-            action = { type = "EQUIP_SPELL", args = spellId },
-         })
-         state:setListing(selectedItem.listingTitle)
-         showQuickAction()
-
-      elseif selectedItem.action.type == "EQUIP_SPELL" then
-         local spellId = selectedItem.action.args
-         local spell = (core.magic.spells.records)[spellId]
-
-         if spell == nil then
-            print('Selected Spell ' .. selectedItem.name .. ' could not be found (spellId:' .. tostring(spellId) .. ')')
-         else
-            print('Equipping ' .. spell.name)
-            Actor.clearSelectedCastable(self)
-            Actor.setSelectedSpell(self, spell)
-
-            async:newUnsavableGameTimer(10, function()
-               Actor.setStance(self, Actor.STANCE.Spell)
-            end)
-         end
-         closeQuickAction()
-         state:setFirstListing()
-
-
-      elseif selectedItem.action.type == "SHOW_EQUIP_ENCHANTED_ACTIONS" then
-         local title = 'Select Enchantment to add:'
-         state:newAndSetListing(title, Listing:unmodifiable(listAddEquipEnchantedActions(selectedItem.listingTitle)))
-         showQuickAction()
-
-      elseif selectedItem.action.type == "ADD_EQUIP_ENCHANTED_ACTION" then
-         local itemId = selectedItem.action.args
-         state:addItemTo(selectedItem.listingTitle, {
-            name = selectedItem.name,
-            texturePath = selectedItem.texturePath,
-            action = { type = "EQUIP_ENCHANTED_ITEM", args = itemId },
-         })
-         state:setListing(selectedItem.listingTitle)
-         showQuickAction()
-
-      elseif selectedItem.action.type == "EQUIP_ENCHANTED_ITEM" then
-         local itemId = selectedItem.action.args
-         local item = Actor.inventory(self):find(itemId)
-
-         if item == nil then
-            print('Selected Enchanted Item ' .. selectedItem.name .. ' could not be found (id:' .. tostring(itemId) .. ')')
-         else
-            Actor.clearSelectedCastable(self)
-            Actor.setSelectedEnchantedItem(self, item)
-
-            async:newUnsavableGameTimer(10, function()
-               Actor.setStance(self, Actor.STANCE.Spell)
-            end)
-         end
-         closeQuickAction()
-         state:setFirstListing()
-
-      else
-         error('Unknown action type ' .. tostring(selectedItem.action.type))
-         closeQuickAction()
-      end
+      select()
    elseif button == 3 then
       closeQuickAction()
    end
@@ -986,6 +1033,7 @@ end
 
 return {
    engineHandlers = {
+      onControllerButtonPress = onControllerButtonPress,
       onMouseButtonRelease = onMouseButtonRelease,
       onMouseWheel = onMouseWheel,
       onKeyPress = onKeyPress,
