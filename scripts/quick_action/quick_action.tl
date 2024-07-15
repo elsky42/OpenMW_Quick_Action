@@ -22,81 +22,83 @@ local Player = types.Player
 local Spell = core.Spell
 local Weapon = types.Weapon
 
+local l10n = core.l10n('quick_action') as function(string): string
+
 I.Settings.registerPage {
     key = 'QuickActionPage',
-    l10n = 'QuickActionPage',
-    name = 'Quick Action',
-    description = 'Add customizable "quick" actions to the HUD',
+    l10n = 'quick_action',
+    name = 'setting_quick_action_page',
+    description = 'setting_quick_action_page_description',
 }
 
 I.Settings.registerGroup {
     key = 'SettingsQuickAction',
     page = 'QuickActionPage',
-    l10n = 'QuickAction',
-    name = 'Quick Action',
-    description = 'Quick Action Settings',
+    l10n = 'quick_action',
+    name = 'setting_quick_action_group',
+    description = 'setting_quick_action_group_description',
     permanentStorage = false,
     settings = {
         {
             key = 'toggle',
-            name = 'Toggle Widget',
-            description = 'Toggle Quick Action HUD Widget',
+            name = 'setting_toggle',
+            description = 'setting_toggle_description',
             renderer = 'textLine',
             default = 'x',
         },
         {
             key = 'addAction',
-            name = 'Add Action',
-            description = 'Add Action to current listing',
+            name = 'setting_add_action',
+            description = 'setting_add_action_description',
             renderer = 'textLine',
             default = 'n',
         },
         {
             key = 'delAction',
-            name = 'Delete Action',
-            description = 'Delete the selected Action from current listing',
+            name = 'setting_del_action',
+            description = 'setting_del_action_description',
             renderer = 'textLine',
             default = 'delete',
         },
         {
             key = 'moveUpAction',
-            name = 'Move Action Up',
-            description = 'Move the selected Action up (counterclockwise)',
+            name = 'setting_move_action_up',
+            description = 'setting_move_action_up_description',
             renderer = 'textLine',
             default = '\\',
         },
         {
             key = 'moveDownAction',
-            name = 'Move Action Down',
-            description = 'Move the selected Action down (clockwise)',
+            name = 'setting_move_action_down',
+            description = 'setting_move_action_down_description',
             renderer = 'textLine',
             default = ']',
         },
         {
             key = 'addListing',
-            name = 'Add Listing',
-            description = 'Add a new listing',
+            name = 'setting_add_listing',
+            description = 'setting_add_listing_description',
             renderer = 'textLine',
             default = 'm',
         },
         {
             key = 'nextListing',
-            name = 'Next Listing',
-            description = 'Switch to the next listing',
+            name = 'setting_next_listing',
+            description = 'setting_next_listing_description',
             renderer = 'textLine',
             default = 'z',
         },
         {
             key = 'delListing',
-            name = 'Delete Listing',
-            description = 'Delete the current listing',
+            name = 'setting_del_listing',
+            description = 'setting_del_listing_description',
             renderer = 'textLine',
             default = 'end',
         },
         {
             key = 'positionX',
-            name = 'Position X',
-            description = 'The x position of the Widget center relative to the screen',
+            name = 'setting_position_x',
+            description = 'setting_position_x_description',
             renderer = 'number',
             default = 0.5,
             argument = {
@@ -106,8 +108,8 @@ I.Settings.registerGroup {
         },
         {
             key = 'positionY',
-            name = 'Position Y',
-            description = 'The y position of the Widget center relative to the screen',
+            name = 'setting_position_y',
+            description = 'setting_position_y_description',
             renderer = 'number',
             default = 0.5,
             argument = {
@@ -117,22 +119,22 @@ I.Settings.registerGroup {
         },
         {
             key = 'radiusMul',
-            name = 'Radius',
-            description = 'The radius of the Widget from the center is going to be this number * min(screen.x, screen.y)',
+            name = 'setting_radius_mul',
+            description = 'setting_radius_mul_description',
             renderer = 'number',
             default = 0.15,
         },
         {
             key = 'enableInfoBox',
-            name = 'Enable Info Box',
-            description = 'Enable the info box under the actions that show name of the listing, name of the action and keys',
+            name = 'setting_enable_info_box',
+            description = 'setting_enable_info_box_description',
             renderer = 'checkbox',
             default = true,
         },
         {
             key = 'enableInfoBoxKeys',
-            name = 'Enable Info Box Keys',
-            description = 'Shows the keys in the Info Box',
+            name = 'setting_enable_info_box_keys',
+            description = 'setting_enable_info_box_keys_description',
             renderer = 'checkbox',
             default = true,
         },
@@ -150,11 +152,11 @@ local function keyBindingFor(settingKey: string): string
 end
 
 local function infoBoxHelper(): string
-    return keyBindingFor('addAction') .. ': add action  ' ..
-        keyBindingFor('delAction') .. ': del action  ' ..
-        keyBindingFor('addListing') .. ': add list  ' ..
-        keyBindingFor('delListing') .. ': del list  ' ..
-        keyBindingFor('nextListing') .. ': next list'
+    return keyBindingFor('addAction') .. ': ' .. l10n('add_action') .. '  ' ..
+        keyBindingFor('delAction') .. ': ' .. l10n('del_action') .. '  ' ..
+        keyBindingFor('addListing') .. ': ' .. l10n('add_list') .. '  ' ..
+        keyBindingFor('delListing') .. ': ' .. l10n('del_list') .. '  ' ..
+        keyBindingFor('nextListing') .. ': ' .. l10n('next_list')
 end
 
 ------------------------
@@ -630,7 +632,6 @@ local function lookupLayout(widget: ui.Element, names: {string}): ui.Layout
 end
 
 local function changeSelection(index: integer)
-    print(I.UI.getMode())
     if not inputWidget then return end
     local current = state:current()
     if #current.listing.items == 0 then return end
