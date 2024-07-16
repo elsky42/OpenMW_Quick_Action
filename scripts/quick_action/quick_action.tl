@@ -138,6 +138,122 @@ I.Settings.registerGroup {
             renderer = 'checkbox',
             default = true,
         },
+        {
+            key = 'showControllerKeysInInfoBox',
+            name = 'setting_show_controller_keys_in_info_box',
+            description = 'setting_show_controller_keys_in_info_box_description',
+            renderer = 'checkbox',
+            default = false,
+        },
+        {
+            key = 'disablePlayerControls',
+            name = 'setting_disable_player_controls',
+            description = 'setting_disable_player_controls_description',
+            renderer = 'checkbox',
+            default = true,
+        },
+        {
+            key = 'resetListings',
+            name = 'reset_listings',
+            description = 'reset_listings_description',
+            renderer = 'checkbox',
+            default = false,
+        },
+    }
+}
+
+I.Settings.registerGroup {
+    key = 'SettingsQuickActionController',
+    page = 'QuickActionPage',
+    l10n = 'quick_action',
+    name = 'setting_quick_action_controller_group',
+    description = 'setting_quick_action_controller_group_description',
+    permanentStorage = false,
+    settings = {
+        {
+            key = 'show',
+            name = 'setting_controller_show',
+            description = 'setting_controller_show_description',
+            renderer = 'textLine',
+            default = 'DPadUp',
+        },
+        {
+            key = 'close',
+            name = 'setting_controller_close',
+            description = 'setting_controller_close_description',
+            renderer = 'textLine',
+            default = 'DPadLeft',
+        },
+        {
+            key = 'select',
+            name = 'setting_controller_select',
+            description = 'setting_controller_select_description',
+            renderer = 'textLine',
+            default = 'A',
+        },
+        {
+            key = 'addAction',
+            name = 'setting_add_action',
+            description = 'setting_add_action_description',
+            renderer = 'textLine',
+            default = 'Y',
+        },
+        {
+            key = 'delAction',
+            name = 'setting_del_action',
+            description = 'setting_del_action_description',
+            renderer = 'textLine',
+            default = 'X',
+        },
+        {
+            key = 'moveUpAction',
+            name = 'setting_move_action_up',
+            description = 'setting_move_action_up_description',
+            renderer = 'textLine',
+            default = '',
+        },
+        {
+            key = 'moveDownAction',
+            name = 'setting_move_action_down',
+            description = 'setting_move_action_down_description',
+            renderer = 'textLine',
+            default = 'RightStick',
+        },
+        {
+            key = 'addListing',
+            name = 'setting_add_listing',
+            description = 'setting_add_listing_description',
+            renderer = 'textLine',
+            default = 'LeftStick',
+        },
+        {
+            key = 'nextListing',
+            name = 'setting_next_listing',
+            description = 'setting_next_listing_description',
+            renderer = 'textLine',
+            default = 'DPadRight',
+        },
+        {
+            key = 'delListing',
+            name = 'setting_del_listing',
+            description = 'setting_del_listing_description',
+            renderer = 'textLine',
+            default = 'Back',
+        },
+        {
+            key = 'switchToNext',
+            name = 'setting_controller_switch_to_next',
+            description = 'setting_controller_switch_to_next_description',
+            renderer = 'textLine',
+            default = 'DPadUp',
+        },
+        {
+            key = 'switchToPrev',
+            name = 'setting_controller_switch_to_prev',
+            description = 'setting_controller_switch_to_prev_description',
+            renderer = 'textLine',
+            default = 'DPadDown',
+        },
     }
 }
 
@@ -147,16 +263,30 @@ local function checkbox(settingKey: string): boolean
     return settings:get(settingKey) as boolean
 end
 
-local function keyBindingFor(settingKey: string): string
+local function keyBindingNameFor(settingKey: string): string
     return settings:get(settingKey) as string
 end
 
+local controllerSettings = storage.playerSection('SettingsQuickActionController')
+
+local function controllerButtonNameFor(settingKey: string): string
+    return controllerSettings:get(settingKey) as string
+end
+
+local function controllerButtonFor(settingKey: string): number
+    local button_name = controllerButtonNameFor(settingKey)
+    if button_name == '' then return nil end
+    return (input.CONTROLLER_BUTTON as {string: number})[button_name]
+end
+
 local function infoBoxHelper(): string
-    return keyBindingFor('addAction') .. ': ' .. l10n('add_action') .. '  ' ..
-        keyBindingFor('delAction') .. ': ' .. l10n('del_action') .. '  ' ..
-        keyBindingFor('addListing') .. ': ' .. l10n('add_list') .. '  ' ..
-        keyBindingFor('delListing') .. ': ' .. l10n('del_list') .. '  ' ..
-        keyBindingFor('nextListing') .. ': ' .. l10n('next_list')
+    local lookupBindingFor = checkbox('showControllerKeysInInfoBox') and controllerButtonNameFor or keyBindingNameFor
+
+    return lookupBindingFor('addAction') .. ': ' .. l10n('add_action') .. '  ' ..
+        lookupBindingFor('delAction') .. ': ' .. l10n('del_action') .. '  ' ..
+        lookupBindingFor('addListing') .. ': ' .. l10n('add_list') .. '  ' ..
+        lookupBindingFor('delListing') .. ': ' .. l10n('del_list') .. '  ' ..
+        lookupBindingFor('nextListing') .. ': ' .. l10n('next_list')
 end
 
 ------------------------
@@ -209,7 +339,7 @@ local record State
     -- The title of the current listing
     currentId: string
     -- The index of the currently selected item
-    selectedItemIndex: integer
+    selectedItemIndex: nil | integer
 end
 
 function State:new(): State
@@ -219,7 +349,7 @@ function State:new(): State
     self.listings[self.currentId] = Listing:modifiable({})
     self.listingsTitles = {}
     table.insert(self.listingsTitles, '1')
-    self.selectedItemIndex = 1
+    self.selectedItemIndex = nil
     return self
 end
 
@@ -241,7 +371,7 @@ end
 
 function State:setListing(id: string)
     self.currentId = id
-    self.selectedItemIndex = 1
+    self.selectedItemIndex = #self.listings[id].items == 0 and nil or 1
 end
 
 function State:setFirstListing()
@@ -301,7 +431,7 @@ function Current:new(title: string,
 end
 
 function Current:selectedItem(): Item
-    if #self.listing.items < self.selectedItemIndex then
+    if self.selectedItemIndex == nil or #self.listing.items < self.selectedItemIndex then
         return nil
     else
         return self.listing.items[self.selectedItemIndex]
@@ -316,10 +446,10 @@ function State:current(): Current
     )
 end
 
-function State:select(selectedItemIndex: integer)
+function State:select(selectedItemIndex: nil | integer)
     local current = self:current()
     local numItems = #current.listing.items
-    if selectedItemIndex < 1 or selectedItemIndex > numItems then
+    if selectedItemIndex ~= nil and (selectedItemIndex < 1 or selectedItemIndex > numItems) then
         error('selectedItemIndex:' .. tostring(selectedItemIndex) ..
               ' is outside the valid range [' .. tostring(1) ..
               ',' .. tostring(numItems) .. '] of listing ' ..
@@ -346,7 +476,8 @@ end
 function State:removeSelected(): Item
     local current = self:current()
     if not current.listing.isModifiable or
-       #current.listing.items < current.selectedItemIndex then
+        current.selectedItemIndex == nil or
+        #current.listing.items < current.selectedItemIndex then
         return nil
     end
     if #current.listing.items < current.selectedItemIndex then
@@ -358,14 +489,16 @@ function State:removeSelected(): Item
     end
     local removed = current.listing.items[current.selectedItemIndex]
     table.remove(current.listing.items, current.selectedItemIndex)
-    if #current.listing.items < current.selectedItemIndex then
+    if #current.listing.items == 0 then
+        self:select(nil)
+    elseif #current.listing.items < current.selectedItemIndex then
         self:select(1)
     end
     return removed
 end
 
 function State:moveCurrentUp()
-    if not self.listings[self.currentId].isModifiable then return end
+    if self.selectedItemIndex == nil or not self.listings[self.currentId].isModifiable then return end
     local oldPosition = self.selectedItemIndex
     local removed = self:removeSelected()
     if removed == nil then return end
@@ -380,7 +513,7 @@ function State:moveCurrentUp()
 end
 
 function State:moveCurrentDown()
-    if not self.listings[self.currentId].isModifiable then return end
+    if self.selectedItemIndex == nil or not self.listings[self.currentId].isModifiable then return end
     local oldPosition = self.selectedItemIndex
     local removed = self:removeSelected()
     if removed == nil then return end
@@ -405,6 +538,15 @@ local state = State:new()
 
 local inputWidget: ui.Element = nil
 
+
+local function resetListingsIfRequested()
+    if checkbox('resetListings') then
+        inputWidget = nil
+        state = State:new()
+        settings:set('resetListings', false as any)
+    end
+end
+
 input.bindAction('Zoom3rdPerson', async:callback(function(_, scroll: integer): integer
    if inputWidget then return 0 else return scroll end
 end), {})
@@ -413,13 +555,30 @@ input.bindAction('Use', async:callback(function(_, use: boolean): boolean
    if inputWidget then return false else return use end
 end), {})
 
+local function disablePlayerControl()
+    if checkbox('disablePlayerControls') then
+        Player.setControlSwitch(self, Player.CONTROL_SWITCH.Controls, false)
+        Player.setControlSwitch(self, Player.CONTROL_SWITCH.Fighting, false)
+        Player.setControlSwitch(self, Player.CONTROL_SWITCH.Jumping, false)
+        Player.setControlSwitch(self, Player.CONTROL_SWITCH.Magic, false)
+        Player.setControlSwitch(self, Player.CONTROL_SWITCH.ViewMode, false)
+    end
+end
+
+local function enablePlayerControl()
+    Player.setControlSwitch(self, Player.CONTROL_SWITCH.Controls, true)
+    Player.setControlSwitch(self, Player.CONTROL_SWITCH.Fighting, true)
+    Player.setControlSwitch(self, Player.CONTROL_SWITCH.Jumping, true)
+    Player.setControlSwitch(self, Player.CONTROL_SWITCH.Magic, true)
+    Player.setControlSwitch(self, Player.CONTROL_SWITCH.ViewMode, true)
+end
+
 local function closeQuickAction()
-    if inputWidget then
+    if inputWidget or core.isWorldPaused() then
         inputWidget:destroy()
         inputWidget = nil
-        -- -- issue: this is centering the screen which is quite annoying
-        -- Player.setControlSwitch(self, Player.CONTROL_SWITCH.Looking, true)
     end
+    enablePlayerControl()
 end
 
 local record BackgroundOptions
@@ -482,6 +641,10 @@ local selectedItemBackgroundColor = MWUI.templates.textHeader.props.textColor as
 local itemBackgroundColor = util.color.rgb(0, 0, 0)
 
 local function showQuickAction()
+    resetListingsIfRequested()
+
+    if core.isWorldPaused() then return end
+
     closeQuickAction()
 
     local current = state:current()
@@ -618,8 +781,7 @@ local function showQuickAction()
         },
     }
 
-    -- -- issue: this is centering the screen which is quite annoying
-    -- Player.setControlSwitch(self, Player.CONTROL_SWITCH.Looking, false)
+    disablePlayerControl()
 end
 
 local function lookupLayout(widget: ui.Element, names: {string}): ui.Layout
@@ -643,10 +805,12 @@ local function changeSelection(index: integer)
         return
     end
 
-    local oldSelectedLayout = lookupLayout(inputWidget, {tostring(state.selectedItemIndex), 'background'})
-    local selectedLayout = lookupLayout(inputWidget, {tostring(index), 'background'})
+    if state.selectedItemIndex ~= nil then
+        local oldSelectedLayout = lookupLayout(inputWidget, {tostring(state.selectedItemIndex), 'background'})
+        oldSelectedLayout.template = background { alpha = 0.5, color = itemBackgroundColor }
+    end
 
-    oldSelectedLayout.template = background { alpha = 0.5, color = itemBackgroundColor }
+    local selectedLayout = lookupLayout(inputWidget, {tostring(index), 'background'})
     selectedLayout.template = background { alpha = 0.5, color = selectedItemBackgroundColor }
 
     state:select(index)
@@ -787,8 +951,11 @@ local function listBasicActions(listingTitle: string): {Item}
 end
 
 local function select()
+    if not inputWidget or core.isWorldPaused() then return end
+
     local current = state:current()
     local selectedItem = current:selectedItem()
+    if selectedItem == nil then return end
 
     if selectedItem.action.type == "SHOW_EQUIP_WEAPON_ACTIONS" then
         local title = 'Select Weapon to add:'
@@ -893,44 +1060,104 @@ local function select()
     end
 end
 
-local function onControllerButtonPress(ctrl: number)
-    if inputWidget == nil then
-        if ctrl == input.CONTROLLER_BUTTON.DPadUp and not core.isWorldPaused() then
-            showQuickAction()
-        end
-        return
-    end
-    if ctrl == input.CONTROLLER_BUTTON.A then
-        select()
+local function handleAddAction()
+    if not inputWidget or core.isWorldPaused() or not state:current().listing.isModifiable then return end
+    local title = 'Select the action to add:'
+    state:newAndSetListing(title, Listing:unmodifiable(listBasicActions(state:current().title)))
+    showQuickAction()
+end
 
-    elseif ctrl == input.CONTROLLER_BUTTON.B then
-        closeQuickAction()
+local function handleDelAction()
+    if not inputWidget or core.isWorldPaused() or not state:current().listing.isModifiable then return end
+    state:removeSelected()
+    showQuickAction()
+end
 
-    elseif ctrl == input.CONTROLLER_BUTTON.X then
-        state:removeSelected()
+local function handleMoveUpAction()
+    if not inputWidget or core.isWorldPaused() or not state:current().listing.isModifiable then return end
+    state:moveCurrentUp()
+    showQuickAction()
+end
 
-    elseif ctrl == input.CONTROLLER_BUTTON.Y then
-        local title = 'Select the action to add:'
-        state:newAndSetListing(title, Listing:unmodifiable(listBasicActions(state:current().title)))
-        showQuickAction()
+local function handleMoveDownAction()
+    if not inputWidget or core.isWorldPaused() or not state:current().listing.isModifiable then return end
+    state:moveCurrentDown()
+    showQuickAction()
+end
 
-    elseif ctrl == input.CONTROLLER_BUTTON.DPadUp then
-        local current = state:current()
-        local numItems = #current.listing.items
-        local newSelected = math.fmod(current.selectedItemIndex + 1, numItems + 1)
-        if newSelected == 0 then
+local function handleAddListing()
+    if not inputWidget or core.isWorldPaused() or not state:current().listing.isModifiable then return end
+    state:addNextListing()
+    showQuickAction()
+end
+
+local function handleNextListing()
+    if not inputWidget or core.isWorldPaused() or not state:current().listing.isModifiable then return end
+    state:nextListing()
+    showQuickAction()
+end
+
+local function handleDelListing()
+    if not inputWidget or core.isWorldPaused() or not state:current().listing.isModifiable then return end
+    state:delListing()
+    showQuickAction()
+end
+
+local function handleSequentialSelection(offset: integer)
+    if not inputWidget or core.isWorldPaused() then return end
+    local current = state:current()
+    local numItems = #current.listing.items
+    if numItems == 0 then return end
+    offset = math.max(math.min(offset, 1), -1)
+    local selected = current.selectedItemIndex or 1
+    local newSelected = math.fmod(selected + offset, numItems + 1)
+    if newSelected == 0 then
+        if offset < 0 then
+            newSelected = numItems
+        else
             newSelected = 1
         end
-        changeSelection(newSelected)
+    end
+    changeSelection(newSelected as integer)
+end
 
-    elseif ctrl == input.CONTROLLER_BUTTON.DPadDown then
-        local current = state:current()
-        local numItems = #current.listing.items
-        local newSelected = math.fmod(current.selectedItemIndex - 1, numItems + 1)
-        if newSelected == 0 then
-            newSelected = numItems
-        end
-        changeSelection(newSelected)
+local function onControllerButtonPress(ctrl: number)
+
+    if inputWidget == nil and controllerButtonFor('show') then
+        showQuickAction()
+
+    elseif ctrl == controllerButtonFor('select') then
+        select()
+
+    elseif ctrl == controllerButtonFor('close') then
+        closeQuickAction()
+
+    elseif ctrl == controllerButtonFor('addAction') then
+        handleAddAction()
+    
+    elseif ctrl == controllerButtonFor('delAction') then
+        handleDelAction()
+
+    elseif ctrl == controllerButtonFor('moveUpAction') then
+        handleMoveUpAction()
+
+    elseif ctrl == controllerButtonFor('moveDownAction') then
+        handleMoveDownAction()
+        
+    elseif ctrl == controllerButtonFor('addListing') then
+        handleAddListing()
+
+    elseif ctrl == controllerButtonFor('nextListing') then
+        handleNextListing()
+
+    elseif ctrl == controllerButtonFor('delListing') then
+        handleDelListing()
+
+    elseif ctrl == controllerButtonFor('switchToNext') then
+        handleSequentialSelection(1)
+
+    elseif ctrl == controllerButtonFor('switchToPrev') then
+        handleSequentialSelection(-1)
 
     end
 end
@@ -939,47 +1166,40 @@ local function onKeyPress(key: input.KeyboardEvent)
 
     local keyName = input.getKeyName(key.code):lower()
 
-    if keyName == keyBindingFor('toggle') then
+    if keyName == keyBindingNameFor('toggle') then
         toggleQuickAction()
 
-    elseif inputWidget and state:current().listing.isModifiable and keyName == keyBindingFor('addAction') then
-        local title = 'Select the action to add:'
-        state:newAndSetListing(title, Listing:unmodifiable(listBasicActions(state:current().title)))
-        showQuickAction()
+    elseif keyName == keyBindingNameFor('addAction') then
+        handleAddAction()
 
-    elseif inputWidget and keyName == keyBindingFor('delAction') then
-        state:removeSelected()
-        showQuickAction()
+    elseif keyName == keyBindingNameFor('delAction') then
+        handleDelAction()
 
-    elseif inputWidget and keyName == keyBindingFor('moveUpAction') then
-        state:moveCurrentUp()
-        showQuickAction()
+    elseif keyName == keyBindingNameFor('moveUpAction') then
+        handleMoveUpAction()
 
-    elseif inputWidget and keyName == keyBindingFor('moveDownAction') then
-        state:moveCurrentDown()
-        showQuickAction()
+    elseif keyName == keyBindingNameFor('moveDownAction') then
+        handleMoveDownAction()
 
-    elseif inputWidget and keyName == keyBindingFor('addListing') then
-        state:addNextListing()
-        showQuickAction()
+    elseif keyName == keyBindingNameFor('addListing') then
+        handleAddListing()
 
-    elseif inputWidget and keyName == keyBindingFor('nextListing') then
-        state:nextListing()
-        showQuickAction()
+    elseif keyName == keyBindingNameFor('nextListing') then
+        handleNextListing()
 
-    elseif inputWidget and keyName == keyBindingFor('delListing') then
-        state:delListing()
-        showQuickAction()
+    elseif keyName == keyBindingNameFor('delListing') then
+        handleDelListing()
 
     end
 end
 
 local function onMouseButtonRelease(button: number)
-    if inputWidget == nil then return end
     if button == 1 then
         select()
+
     elseif button == 3 then
         closeQuickAction()
+        
     end
 end
 
@@ -996,40 +1216,27 @@ local function onSave(): State
 end
 
 local function onFrame(_)
-    if inputWidget then
-        local current = state:current()
-        local y = input.getMouseMoveY()
-        local x = input.getMouseMoveX()
-        if math.abs(x) + math.abs(y) <= 5 then return end
-        local angle = 2 * math.pi / #current.listing.items
-        local pointAngle = math.atan(y/x)
-        if pointAngle < 0 then
-            if y < 0 then
-                pointAngle = 2 * math.pi + pointAngle
-            else
-                pointAngle = math.pi + pointAngle
-            end
-        elseif x < 0 and y < 0 then
+    if not inputWidget or core.isWorldPaused() then return end
+    local current = state:current()
+    local y = input.getMouseMoveY()
+    local x = input.getMouseMoveX()
+    if math.abs(x) + math.abs(y) <= 5 then return end
+    local angle = 2 * math.pi / #current.listing.items
+    local pointAngle = math.atan(y/x)
+    if pointAngle < 0 then
+        if y < 0 then
+            pointAngle = 2 * math.pi + pointAngle
+        else
             pointAngle = math.pi + pointAngle
         end
-        changeSelection(1 + math.floor(pointAngle / angle))
+    elseif x < 0 and y < 0 then
+        pointAngle = math.pi + pointAngle
     end
+    changeSelection(1 + math.floor(pointAngle / angle))
 end
 
-local function onMouseWheel(vertical: number, _)
-    if not inputWidget then return end
-    local current = state:current()
-    local numItems = #current.listing.items
-    vertical = math.max(math.min(vertical, 1), -1)
-    local newSelected = math.fmod(current.selectedItemIndex + vertical, numItems + 1)
-    if newSelected == 0 then
-        if vertical < 0 then
-            newSelected = numItems
-        else
-            newSelected = 1
-        end
-    end
-    changeSelection(newSelected as integer)
+local function onMouseWheel(vertical: integer, _)
+    handleSequentialSelection(vertical)
 end
 
 return {
