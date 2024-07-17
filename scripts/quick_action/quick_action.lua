@@ -574,7 +574,7 @@ local function enablePlayerControl()
 end
 
 local function closeQuickAction()
-   if inputWidget or core.isWorldPaused() then
+   if inputWidget and not core.isWorldPaused() then
       inputWidget:destroy()
       inputWidget = nil
    end
