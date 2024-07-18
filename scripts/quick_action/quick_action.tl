@@ -1123,7 +1123,7 @@ end
 
 local function onControllerButtonPress(ctrl: number)
 
-    if inputWidget == nil and controllerButtonFor('show') then
+    if inputWidget == nil and ctrl == controllerButtonFor('show') then
         showQuickAction()
 
     elseif ctrl == controllerButtonFor('select') then
