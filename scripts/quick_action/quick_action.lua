@@ -318,6 +318,8 @@ end
 
 
 
+
+
 local Listing = {}
 
 
@@ -947,6 +949,12 @@ local function listBasicActions(listingTitle)
          action = { type = "SHOW_EQUIP_ENCHANTED_ACTIONS", args = nil },
          listingTitle = listingTitle,
       },
+      {
+         name = 'add switch to hand-to-hand',
+         texturePath = 'icons/k/stealth_handtohand.dds',
+         action = { type = "ADD_SWITCH_TO_HAND2HAND", args = nil },
+         listingTitle = listingTitle,
+      },
    }
 end
 
@@ -1051,6 +1059,23 @@ local function select()
             Actor.setStance(self, Actor.STANCE.Spell)
          end)
       end
+      closeQuickAction()
+      state:setFirstListing()
+
+   elseif selectedItem.action.type == 'ADD_SWITCH_TO_HAND2HAND' then
+      state:addItemTo(selectedItem.listingTitle, {
+         name = selectedItem.name,
+         texturePath = selectedItem.texturePath,
+         action = { type = "SWITCH_TO_HAND2HAND", args = nil },
+      })
+      state:setListing(selectedItem.listingTitle)
+      showQuickAction()
+
+   elseif selectedItem.action.type == 'SWITCH_TO_HAND2HAND' then
+      local equipment = Actor.getEquipment(self)
+      equipment[Actor.EQUIPMENT_SLOT.CarriedRight] = nil
+      Actor.setEquipment(self, equipment)
+      Actor.setStance(self, Actor.STANCE.Weapon)
       closeQuickAction()
       state:setFirstListing()
 
